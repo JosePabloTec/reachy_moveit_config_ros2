@@ -1,7 +1,8 @@
 sensors:
-  - point_cloud_sensor
+  - head_camera
+  - torso_camera
 
-point_cloud_sensor:
+head_camera:
   sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
   point_cloud_topic: /camera/depth/points
   point_cloud_frame: depth_cam_l_optical
@@ -9,5 +10,16 @@ point_cloud_sensor:
   point_subsample: 1
   padding_offset: 0.03
   padding_scale: 1.0
-  filtered_cloud_topic: /filtered_cloud
+  filtered_cloud_topic: /filtered_cloud_head
+  max_update_rate: 10.0
+
+torso_camera:
+  sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
+  point_cloud_topic: /torso_camera/depth/points
+  point_cloud_frame: torso_camera_optical
+  max_range: 4.0
+  point_subsample: 1
+  padding_offset: 0.03
+  padding_scale: 1.0
+  filtered_cloud_topic: /filtered_cloud_torso
   max_update_rate: 10.0
