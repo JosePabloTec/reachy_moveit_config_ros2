@@ -64,6 +64,28 @@ def generate_launch_description():
         "reachy_moveit_config_ros2", "config/kinematics.yaml"
     )
 
+
+    sensors_3d_yaml = {
+    "move_group": {
+        "ros__parameters": load_yaml(
+            "reachy_moveit_config_ros2",
+            "config/sensors_3d.yaml",
+        	)
+    		}
+		}
+
+
+    octomap_config = {
+    "octomap_frame": "odom",
+    "octomap_resolution": 0.05,
+	}
+
+    planning_scene_monitor_parameters.update({
+    "octomap_frame": "odom",
+    "octomap_resolution": 0.05,
+	})
+
+
     # Planning Functionality
     ompl_planning_pipeline_config = {
         "move_group": {
@@ -93,12 +115,17 @@ def generate_launch_description():
         "trajectory_execution.allowed_start_tolerance": 0.01,
     }
 
+
     planning_scene_monitor_parameters = {
-        "publish_planning_scene": True,
-        "publish_geometry_updates": True,
-        "publish_state_updates": True,
-        "publish_transforms_updates": True,
-    }
+    "publish_planning_scene": True,
+    "publish_geometry_updates": True,
+    "publish_state_updates": True,
+    "publish_transforms_updates": True,
+    "octomap_frame": "odom",
+    "octomap_resolution": 0.05,
+	}
+
+
 
     # Start the actual move_group node/action server
     run_move_group_node = Node(
@@ -113,6 +140,8 @@ def generate_launch_description():
             trajectory_execution,
             moveit_controllers,
             planning_scene_monitor_parameters,
+	    sensors_3d_yaml,
+	    octomap_config,
         ],
     )
 
