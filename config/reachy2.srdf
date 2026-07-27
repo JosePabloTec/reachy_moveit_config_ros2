@@ -18,6 +18,13 @@
     <group name="r_arm">
         <chain base_link="r_shoulder_base_link" tip_link="r_arm_tip_bottom"/>
     </group>
+
+    <group name="full_body">
+        <group name="l_arm"/>
+        <group name="head"/>
+        <group name="r_arm"/>
+    </group>
+	
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
     <end_effector name="l_gripper" parent_link="l_arm_tip" group="l_arm"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
