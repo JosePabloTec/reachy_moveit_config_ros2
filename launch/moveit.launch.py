@@ -74,26 +74,6 @@ def generate_launch_description():
         f' robot_model:="{BETA if reachy_config.beta else DVT}"',
     )
 
-    robot_description = {
-        "robot_description": ParameterValue(
-            Command(
-                [
-                    PathJoinSubstitution([FindExecutable(name="xacro")]),
-                    " ",
-                    PathJoinSubstitution(
-                        [
-                            FindPackageShare("reachy_description"),
-                            "urdf",
-                            "reachy.urdf.xacro",
-                        ]
-                    ),
-                    *reachy_urdf_config,
-                ]
-            ),
-            value_type=str,
-        ),
-    }
-
 
     # Robot semantic description (SRDF), Identica to reachy.launch.py
     robot_description_semantic_config = load_file(
@@ -205,9 +185,7 @@ def generate_launch_description():
         name="move_group",
         output="screen",
 
-        parameters=[
-    
-            robot_description,
+        parameters=[    
             robot_description_semantic,
             kinematics_yaml,
             ompl_planning_pipeline_config,
