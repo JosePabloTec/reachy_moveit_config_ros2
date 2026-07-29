@@ -2,12 +2,14 @@ import os
 import yaml
 
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 from launch_ros.descriptions import ParameterValue
 from launch.substitutions import (
     Command,
     FindExecutable,
     PathJoinSubstitution,
+    LaunchConfiguration,
 )
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
@@ -45,11 +47,12 @@ def load_yaml(package_name, file_path):
 
 def generate_launch_description():
 
+    use_sim_time = LaunchConfiguration("use_sim_time")
+
     # Package name
     moveit_config_package = "reachy_moveit_config_ros2"
 
     # This launch file only starts the move_group node
-    # I still had to provide the robot_description directly to move_group because move_group requires the robot model to work properly
     # removed:
     # f" use_fake_hardware:=true" if fake_py or gazebo_py or mujoco_py else " ",
     # f" use_gazebo:=true" if gazebo_py else " ",
@@ -57,7 +60,7 @@ def generate_launch_description():
 
     reachy_config = ReachyConfig()
     reachy_urdf_config = (
-	f" depth_camera:=true",
+        f" depth_camera:=true",
         f" robot_config:={reachy_config.model}",
         f' neck_config:="{reachy_config.part_conf("neck_config", fake=False)}"',
         f' right_shoulder_config:="{reachy_config.part_conf("right_shoulder_config", fake=False)}"',
@@ -68,8 +71,8 @@ def generate_launch_description():
         f' left_wrist_config:="{reachy_config.part_conf("left_wrist_config", fake=False)}"',
         f' antenna_config:="{reachy_config.part_conf("antenna_config", fake=False)}"',
         f' grippers_config:="{reachy_config.part_conf("grippers_config", fake=False)}"',
-        f' robot_model:="{BETA if reachy_config.beta else DVT }"',
-    )     
+        f' robot_model:="{BETA if reachy_config.beta else DVT}"',
+    )
 
     robot_description = {
         "robot_description": ParameterValue(
@@ -77,7 +80,13 @@ def generate_launch_description():
                 [
                     PathJoinSubstitution([FindExecutable(name="xacro")]),
                     " ",
-                    PathJoinSubstitution([FindPackageShare("reachy_description"), "urdf", "reachy.urdf.xacro"]),
+                    PathJoinSubstitution(
+                        [
+                            FindPackageShare("reachy_description"),
+                            "urdf",
+                            "reachy.urdf.xacro",
+                        ]
+                    ),
                     *reachy_urdf_config,
                 ]
             ),
@@ -88,20 +97,23 @@ def generate_launch_description():
 
     # Robot semantic description (SRDF), Identica to reachy.launch.py
     robot_description_semantic_config = load_file(
-        moveit_config_package,"config/reachy2.srdf",
+        moveit_config_package,
+        "config/reachy2.srdf",
     )
 
     robot_description_semantic = {
         "robot_description_semantic": robot_description_semantic_config
     }
 
+
     # Kinematics, Identica to reachy.launch.py
     kinematics_yaml = load_yaml(
         moveit_config_package,
         "config/kinematics.yaml",
     )
-    # OMPL Planning Pipeline, Identica to reachy.launch.py
 
+
+    # OMPL Planning Pipeline, Identica to reachy.launch.py
     ompl_planning_pipeline_config = {
         "move_group": {
             "planning_plugin": "ompl_interface/OMPLPlanner",
@@ -132,6 +144,7 @@ def generate_launch_description():
 
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
+
     # MoveIt controller configuration, Identica to reachy.launch.py
     moveit_simple_controllers_yaml = load_yaml(
         moveit_config_package,
@@ -139,13 +152,15 @@ def generate_launch_description():
     )
 
     moveit_simple_controllers_yaml = load_yaml(
-        "reachy_moveit_config_ros2", "config/reachy_controllers.yaml"
+        "reachy_moveit_config_ros2",
+        "config/reachy_controllers.yaml"
     )
 
     moveit_controllers = {
         "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
         "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
-    }  
+    }
+
 
     # Trajectory execution, Identica to reachy.launch.py
     trajectory_execution = {
@@ -154,6 +169,7 @@ def generate_launch_description():
         "trajectory_execution.allowed_goal_duration_margin": 0.5,
         "trajectory_execution.allowed_start_tolerance": 0.01,
     }
+
 
     # Planning Scene Monitor, Identica to reachy.launch.py
     planning_scene_monitor_parameters = {
@@ -165,9 +181,22 @@ def generate_launch_description():
         }
     }
 
+
     # 3D Sensors / OctoMap, Identica to reachy.launch.py
-    sensors_3d_yaml = load_yaml(moveit_config_package,"config/sensors_3d.yaml")
+    sensors_3d_yaml = load_yaml(
+        moveit_config_package,
+        "config/sensors_3d.yaml"
+    )
     sensors_3d_parameters = sensors_3d_yaml or {}
+
+
+    # Octomap configuration
+    occupancy_map_yaml = load_yaml(
+        moveit_config_package,
+        "config/occupancy_map.yaml",
+    )
+    occupancy_map_parameters = occupancy_map_yaml or {}
+
 
     # Move Group Node, Identica to reachy.launch.py
     move_group_node = Node(
@@ -184,17 +213,11 @@ def generate_launch_description():
             ompl_planning_pipeline_config,
             trajectory_execution,
             moveit_controllers,
-
-            {"use_sim_time": True},
-
             planning_scene_monitor_parameters,
             sensors_3d_parameters,
+            occupancy_map_parameters,
             {
-                "octomap_frame": "base_link",
-                "octomap_resolution": 0.05,
-                "occupancy_map_monitor": {
-                    "enabled": True,
-                },
+                "use_sim_time": use_sim_time,
             },
         ],
     )
@@ -202,6 +225,11 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "use_sim_time",
+                default_value="false",
+                description="Use simulation time if true",
+            ),
             move_group_node,
         ]
     )

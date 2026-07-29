@@ -1,0 +1,5 @@
+octomap_frame: base_link
+octomap_resolution: 0.05
+
+occupancy_map_monitor:
+  enabled: true
