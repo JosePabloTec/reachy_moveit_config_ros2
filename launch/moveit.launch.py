@@ -12,115 +12,95 @@ from launch.substitutions import (
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 
+from reachy_config import (
+    BETA,
+    DVT,
+    ReachyConfig,
+)
+
+
 
 def load_file(package_name, file_path):
-    """
-    Load a text file from a ROS 2 package.
-    """
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
 
     try:
         with open(absolute_file_path, "r") as file:
             return file.read()
-    except EnvironmentError as e:
-        raise RuntimeError(
-            f"Could not load file: {absolute_file_path}"
-        ) from e
+    except EnvironmentError:
+        return None
 
 
 def load_yaml(package_name, file_path):
-    """
-    Load a YAML file from a ROS 2 package.
-    """
+
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
 
     try:
         with open(absolute_file_path, "r") as file:
             return yaml.safe_load(file)
-    except EnvironmentError as e:
-        raise RuntimeError(
-            f"Could not load YAML file: {absolute_file_path}"
-        ) from e
+    except EnvironmentError:
+        return None
 
 
 def generate_launch_description():
 
-    # ============================================================
     # Package name
-    # ============================================================
-
     moveit_config_package = "reachy_moveit_config_ros2"
 
-    # ============================================================
-    # Robot description
-    #
-    # IMPORTANT:
-    # This launch file only starts move_group.
-    #
-    # The rest of the Reachy system is expected to already provide:
-    #   - /robot_description
-    #   - /joint_states
-    #   - /tf
-    #   - /tf_static
-    #
-    # We still provide robot_description directly to move_group
-    # because move_group requires the robot model.
-    # ============================================================
+    # This launch file only starts the move_group node
+    # I still had to provide the robot_description directly to move_group because move_group requires the robot model to work properly
+    # removed:
+    # f" use_fake_hardware:=true" if fake_py or gazebo_py or mujoco_py else " ",
+    # f" use_gazebo:=true" if gazebo_py else " ",
+    # f" use_mujoco:=true" if mujoco_py else " ",
+
+    reachy_config = ReachyConfig()
+    reachy_urdf_config = (
+	f" depth_camera:=true",
+        f" robot_config:={reachy_config.model}",
+        f' neck_config:="{reachy_config.part_conf("neck_config", fake=False)}"',
+        f' right_shoulder_config:="{reachy_config.part_conf("right_shoulder_config", fake=False)}"',
+        f' right_elbow_config:="{reachy_config.part_conf("right_elbow_config", fake=False)}"',
+        f' right_wrist_config:="{reachy_config.part_conf("right_wrist_config", fake=False)}"',
+        f' left_shoulder_config:="{reachy_config.part_conf("left_shoulder_config", fake=False)}"',
+        f' left_elbow_config:="{reachy_config.part_conf("left_elbow_config", fake=False)}"',
+        f' left_wrist_config:="{reachy_config.part_conf("left_wrist_config", fake=False)}"',
+        f' antenna_config:="{reachy_config.part_conf("antenna_config", fake=False)}"',
+        f' grippers_config:="{reachy_config.part_conf("grippers_config", fake=False)}"',
+        f' robot_model:="{BETA if reachy_config.beta else DVT }"',
+    )     
 
     robot_description = {
         "robot_description": ParameterValue(
             Command(
                 [
-                    FindExecutable(name="xacro"),
+                    PathJoinSubstitution([FindExecutable(name="xacro")]),
                     " ",
-                    PathJoinSubstitution(
-                        [
-                            FindPackageShare("reachy_description"),
-                            "urdf",
-                            "reachy.urdf.xacro",
-                        ]
-                    ),
-
-                    # Match the working launch file's simulation setup
-                    " use_fake_hardware:=true",
-                    " use_gazebo:=true",
-                    " depth_camera:=true",
+                    PathJoinSubstitution([FindPackageShare("reachy_description"), "urdf", "reachy.urdf.xacro"]),
+                    *reachy_urdf_config,
                 ]
             ),
             value_type=str,
-        )
+        ),
     }
 
-    # ============================================================
-    # Robot semantic description (SRDF)
-    # ============================================================
 
+    # Robot semantic description (SRDF), Identica to reachy.launch.py
     robot_description_semantic_config = load_file(
-        moveit_config_package,
-        "config/reachy2.srdf",
+        moveit_config_package,"config/reachy2.srdf",
     )
 
     robot_description_semantic = {
         "robot_description_semantic": robot_description_semantic_config
     }
 
-    # ============================================================
-    # Kinematics
-    # ============================================================
-
+    # Kinematics, Identica to reachy.launch.py
     kinematics_yaml = load_yaml(
         moveit_config_package,
         "config/kinematics.yaml",
     )
-
-    # ============================================================
-    # OMPL Planning Pipeline
-    #
-    # This structure matches the configuration used by the
-    # working Reachy launch file.
-    # ============================================================
+    # OMPL Planning Pipeline, Identica to reachy.launch.py
 
     ompl_planning_pipeline_config = {
         "move_group": {
@@ -150,39 +130,24 @@ def generate_launch_description():
         "config/ompl_planning.yaml",
     )
 
-    if ompl_planning_yaml:
-        ompl_planning_pipeline_config["move_group"].update(
-            ompl_planning_yaml
-        )
+    ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
-    # ============================================================
-    # MoveIt controller configuration
-    #
-    # This is required by MoveIt for trajectory execution.
-    #
-    # It does NOT launch the controllers.
-    # The actual controllers must already be running.
-    # ============================================================
-
+    # MoveIt controller configuration, Identica to reachy.launch.py
     moveit_simple_controllers_yaml = load_yaml(
         moveit_config_package,
         "config/reachy_controllers.yaml",
     )
 
+    moveit_simple_controllers_yaml = load_yaml(
+        "reachy_moveit_config_ros2", "config/reachy_controllers.yaml"
+    )
+
     moveit_controllers = {
-        "moveit_simple_controller_manager": (
-            moveit_simple_controllers_yaml
-        ),
-        "moveit_controller_manager": (
-            "moveit_simple_controller_manager/"
-            "MoveItSimpleControllerManager"
-        ),
-    }
+        "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
+        "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
+    }  
 
-    # ============================================================
-    # Trajectory execution
-    # ============================================================
-
+    # Trajectory execution, Identica to reachy.launch.py
     trajectory_execution = {
         "moveit_manage_controllers": True,
         "trajectory_execution.allowed_execution_duration_scaling": 1.2,
@@ -190,10 +155,7 @@ def generate_launch_description():
         "trajectory_execution.allowed_start_tolerance": 0.01,
     }
 
-    # ============================================================
-    # Planning Scene Monitor
-    # ============================================================
-
+    # Planning Scene Monitor, Identica to reachy.launch.py
     planning_scene_monitor_parameters = {
         "planning_scene_monitor": {
             "publish_planning_scene": True,
@@ -203,23 +165,11 @@ def generate_launch_description():
         }
     }
 
-    # ============================================================
-    # 3D Sensors / OctoMap
-    # ============================================================
-
-    sensors_3d_yaml = load_yaml(
-        moveit_config_package,
-        "config/sensors_3d.yaml",
-    )
-
+    # 3D Sensors / OctoMap, Identica to reachy.launch.py
+    sensors_3d_yaml = load_yaml(moveit_config_package,"config/sensors_3d.yaml")
     sensors_3d_parameters = sensors_3d_yaml or {}
 
-    # ============================================================
-    # Move Group
-    #
-    # This is the ONLY node launched by this file.
-    # ============================================================
-
+    # Move Group Node, Identica to reachy.launch.py
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
@@ -227,63 +177,21 @@ def generate_launch_description():
         output="screen",
 
         parameters=[
-            # ----------------------------------------------------
-            # Robot model
-            # ----------------------------------------------------
+    
             robot_description,
-
-            # ----------------------------------------------------
-            # Semantic robot model
-            # ----------------------------------------------------
             robot_description_semantic,
-
-            # ----------------------------------------------------
-            # Kinematics
-            # ----------------------------------------------------
             kinematics_yaml,
-
-            # ----------------------------------------------------
-            # OMPL planning pipeline
-            # ----------------------------------------------------
             ompl_planning_pipeline_config,
-
-            # ----------------------------------------------------
-            # Trajectory execution
-            # ----------------------------------------------------
             trajectory_execution,
-
-            # ----------------------------------------------------
-            # MoveIt controller manager
-            # ----------------------------------------------------
             moveit_controllers,
 
-            # ----------------------------------------------------
-            # Simulation time
-            #
-            # Must match the rest of the running Reachy stack.
-            # Your working launch file uses True for the MoveIt node.
-            # ----------------------------------------------------
-            {
-                "use_sim_time": True,
-            },
+            {"use_sim_time": True},
 
-            # ----------------------------------------------------
-            # Planning Scene Monitor
-            # ----------------------------------------------------
             planning_scene_monitor_parameters,
-
-            # ----------------------------------------------------
-            # 3D sensor configuration
-            # ----------------------------------------------------
             sensors_3d_parameters,
-
-            # ----------------------------------------------------
-            # OctoMap configuration
-            # ----------------------------------------------------
             {
                 "octomap_frame": "base_link",
                 "octomap_resolution": 0.05,
-
                 "occupancy_map_monitor": {
                     "enabled": True,
                 },
@@ -291,9 +199,6 @@ def generate_launch_description():
         ],
     )
 
-    # ============================================================
-    # Launch description
-    # ============================================================
 
     return LaunchDescription(
         [
