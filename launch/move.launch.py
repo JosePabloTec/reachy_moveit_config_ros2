@@ -19,6 +19,7 @@ from reachy_config import (
 )
 
 
+
 def load_file(package_name, file_path):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
@@ -49,10 +50,14 @@ def generate_launch_description():
 
     # This launch file only starts the move_group node
     # I still had to provide the robot_description directly to move_group because move_group requires the robot model to work properly
+    # removed:
+    # f" use_fake_hardware:=true" if fake_py or gazebo_py or mujoco_py else " ",
+    # f" use_gazebo:=true" if gazebo_py else " ",
+    # f" use_mujoco:=true" if mujoco_py else " ",
 
     reachy_config = ReachyConfig()
-
     reachy_urdf_config = (
+	f" depth_camera:=true",
         f" robot_config:={reachy_config.model}",
         f' neck_config:="{reachy_config.part_conf("neck_config", fake=False)}"',
         f' right_shoulder_config:="{reachy_config.part_conf("right_shoulder_config", fake=False)}"',
@@ -64,44 +69,38 @@ def generate_launch_description():
         f' antenna_config:="{reachy_config.part_conf("antenna_config", fake=False)}"',
         f' grippers_config:="{reachy_config.part_conf("grippers_config", fake=False)}"',
         f' robot_model:="{BETA if reachy_config.beta else DVT }"',
-    )
+    )     
 
     robot_description = {
         "robot_description": ParameterValue(
             Command(
                 [
-                    FindExecutable(name="xacro"),
+                    PathJoinSubstitution([FindExecutable(name="xacro")]),
                     " ",
-                    PathJoinSubstitution(
-                        [
-                            FindPackageShare("reachy_description"),
-                            "urdf",
-                            "reachy.urdf.xacro",
-                        ]
-                    ),
+                    PathJoinSubstitution([FindPackageShare("reachy_description"), "urdf", "reachy.urdf.xacro"]),
                     *reachy_urdf_config,
                 ]
             ),
             value_type=str,
-        )
+        ),
     }
 
-    # Robot semantic description (SRDF)
+
+    # Robot semantic description (SRDF), Identica to reachy.launch.py
     robot_description_semantic_config = load_file(
-        moveit_config_package,
-        "config/reachy2.srdf",
+        moveit_config_package,"config/reachy2.srdf",
     )
 
     robot_description_semantic = {
         "robot_description_semantic": robot_description_semantic_config
     }
 
-    # Kinematics
+    # Kinematics, Identica to reachy.launch.py
     kinematics_yaml = load_yaml(
         moveit_config_package,
         "config/kinematics.yaml",
     )
-    # OMPL Planning Pipeline
+    # OMPL Planning Pipeline, Identica to reachy.launch.py
 
     ompl_planning_pipeline_config = {
         "move_group": {
@@ -139,15 +138,14 @@ def generate_launch_description():
         "config/reachy_controllers.yaml",
     )
 
+    moveit_simple_controllers_yaml = load_yaml(
+        "reachy_moveit_config_ros2", "config/reachy_controllers.yaml"
+    )
+
     moveit_controllers = {
-        "moveit_simple_controller_manager": (
-            moveit_simple_controllers_yaml
-        ),
-        "moveit_controller_manager": (
-            "moveit_simple_controller_manager/"
-            "MoveItSimpleControllerManager"
-        ),
-    }
+        "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
+        "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
+    }  
 
     # Trajectory execution, Identica to reachy.launch.py
     trajectory_execution = {
@@ -187,9 +185,7 @@ def generate_launch_description():
             trajectory_execution,
             moveit_controllers,
 
-            {
-                "use_sim_time": True,
-            },
+            {"use_sim_time": True},
 
             planning_scene_monitor_parameters,
             sensors_3d_parameters,
