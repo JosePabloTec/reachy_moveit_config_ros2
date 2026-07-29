@@ -1,0 +1,211 @@
+import os
+import yaml
+
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch_ros.descriptions import ParameterValue
+from launch.substitutions import (
+    Command,
+    FindExecutable,
+    PathJoinSubstitution,
+)
+from launch_ros.substitutions import FindPackageShare
+from ament_index_python.packages import get_package_share_directory
+
+from reachy_config import (
+    BETA,
+    DVT,
+    ReachyConfig,
+)
+
+
+def load_file(package_name, file_path):
+    package_path = get_package_share_directory(package_name)
+    absolute_file_path = os.path.join(package_path, file_path)
+
+    try:
+        with open(absolute_file_path, "r") as file:
+            return file.read()
+    except EnvironmentError:
+        return None
+
+
+def load_yaml(package_name, file_path):
+
+    package_path = get_package_share_directory(package_name)
+    absolute_file_path = os.path.join(package_path, file_path)
+
+    try:
+        with open(absolute_file_path, "r") as file:
+            return yaml.safe_load(file)
+    except EnvironmentError:
+        return None
+
+
+def generate_launch_description():
+
+    # Package name
+    moveit_config_package = "reachy_moveit_config_ros2"
+
+    # This launch file only starts the move_group node
+    # I still had to provide the robot_description directly to move_group because move_group requires the robot model to work properly
+
+    reachy_config = ReachyConfig()
+
+    reachy_urdf_config = (
+        f" robot_config:={reachy_config.model}",
+        f' neck_config:="{reachy_config.part_conf("neck_config", fake=False)}"',
+        f' right_shoulder_config:="{reachy_config.part_conf("right_shoulder_config", fake=False)}"',
+        f' right_elbow_config:="{reachy_config.part_conf("right_elbow_config", fake=False)}"',
+        f' right_wrist_config:="{reachy_config.part_conf("right_wrist_config", fake=False)}"',
+        f' left_shoulder_config:="{reachy_config.part_conf("left_shoulder_config", fake=False)}"',
+        f' left_elbow_config:="{reachy_config.part_conf("left_elbow_config", fake=False)}"',
+        f' left_wrist_config:="{reachy_config.part_conf("left_wrist_config", fake=False)}"',
+        f' antenna_config:="{reachy_config.part_conf("antenna_config", fake=False)}"',
+        f' grippers_config:="{reachy_config.part_conf("grippers_config", fake=False)}"',
+        f' robot_model:="{BETA if reachy_config.beta else DVT }"',
+    )
+
+    robot_description = {
+        "robot_description": ParameterValue(
+            Command(
+                [
+                    FindExecutable(name="xacro"),
+                    " ",
+                    PathJoinSubstitution(
+                        [
+                            FindPackageShare("reachy_description"),
+                            "urdf",
+                            "reachy.urdf.xacro",
+                        ]
+                    ),
+                    *reachy_urdf_config,
+                ]
+            ),
+            value_type=str,
+        )
+    }
+
+    # Robot semantic description (SRDF)
+    robot_description_semantic_config = load_file(
+        moveit_config_package,
+        "config/reachy2.srdf",
+    )
+
+    robot_description_semantic = {
+        "robot_description_semantic": robot_description_semantic_config
+    }
+
+    # Kinematics
+    kinematics_yaml = load_yaml(
+        moveit_config_package,
+        "config/kinematics.yaml",
+    )
+    # OMPL Planning Pipeline
+
+    ompl_planning_pipeline_config = {
+        "move_group": {
+            "planning_plugin": "ompl_interface/OMPLPlanner",
+
+            "request_adapters": (
+                "default_planner_request_adapters/"
+                "AddTimeOptimalParameterization "
+                "default_planner_request_adapters/"
+                "ResolveConstraintFrames "
+                "default_planner_request_adapters/"
+                "FixWorkspaceBounds "
+                "default_planner_request_adapters/"
+                "FixStartStateBounds "
+                "default_planner_request_adapters/"
+                "FixStartStateCollision "
+                "default_planner_request_adapters/"
+                "FixStartStatePathConstraints"
+            ),
+
+            "start_state_max_bounds_error": 0.1,
+        }
+    }
+
+    ompl_planning_yaml = load_yaml(
+        moveit_config_package,
+        "config/ompl_planning.yaml",
+    )
+
+    ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
+
+    # MoveIt controller configuration, Identica to reachy.launch.py
+    moveit_simple_controllers_yaml = load_yaml(
+        moveit_config_package,
+        "config/reachy_controllers.yaml",
+    )
+
+    moveit_controllers = {
+        "moveit_simple_controller_manager": (
+            moveit_simple_controllers_yaml
+        ),
+        "moveit_controller_manager": (
+            "moveit_simple_controller_manager/"
+            "MoveItSimpleControllerManager"
+        ),
+    }
+
+    # Trajectory execution, Identica to reachy.launch.py
+    trajectory_execution = {
+        "moveit_manage_controllers": True,
+        "trajectory_execution.allowed_execution_duration_scaling": 1.2,
+        "trajectory_execution.allowed_goal_duration_margin": 0.5,
+        "trajectory_execution.allowed_start_tolerance": 0.01,
+    }
+
+    # Planning Scene Monitor, Identica to reachy.launch.py
+    planning_scene_monitor_parameters = {
+        "planning_scene_monitor": {
+            "publish_planning_scene": True,
+            "publish_geometry_updates": True,
+            "publish_state_updates": True,
+            "publish_transforms_updates": True,
+        }
+    }
+
+    # 3D Sensors / OctoMap, Identica to reachy.launch.py
+    sensors_3d_yaml = load_yaml(moveit_config_package,"config/sensors_3d.yaml")
+    sensors_3d_parameters = sensors_3d_yaml or {}
+
+    # Move Group Node, Identica to reachy.launch.py
+    move_group_node = Node(
+        package="moveit_ros_move_group",
+        executable="move_group",
+        name="move_group",
+        output="screen",
+
+        parameters=[
+    
+            robot_description,
+            robot_description_semantic,
+            kinematics_yaml,
+            ompl_planning_pipeline_config,
+            trajectory_execution,
+            moveit_controllers,
+
+            {
+                "use_sim_time": True,
+            },
+
+            planning_scene_monitor_parameters,
+            sensors_3d_parameters,
+            {
+                "octomap_frame": "base_link",
+                "octomap_resolution": 0.05,
+                "occupancy_map_monitor": {
+                    "enabled": True,
+                },
+            },
+        ],
+    )
+
+
+    return LaunchDescription(
+        [
+            move_group_node,
+        ]
+    )
