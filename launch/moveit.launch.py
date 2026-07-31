@@ -4,7 +4,6 @@ import yaml
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
-from launch_ros.descriptions import ParameterValue
 from launch.substitutions import (
     Command,
     FindExecutable,
@@ -19,7 +18,6 @@ from reachy_config import (
     DVT,
     ReachyConfig,
 )
-
 
 
 def load_file(package_name, file_path):
@@ -74,7 +72,6 @@ def generate_launch_description():
         f' robot_model:="{BETA if reachy_config.beta else DVT}"',
     )
 
-
     # Robot semantic description (SRDF), Identica to reachy.launch.py
     robot_description_semantic_config = load_file(
         moveit_config_package,
@@ -85,13 +82,11 @@ def generate_launch_description():
         "robot_description_semantic": robot_description_semantic_config
     }
 
-
     # Kinematics, Identica to reachy.launch.py
     kinematics_yaml = load_yaml(
         moveit_config_package,
         "config/kinematics.yaml",
     )
-
 
     # OMPL Planning Pipeline, Identica to reachy.launch.py
     ompl_planning_pipeline_config = {
@@ -124,7 +119,6 @@ def generate_launch_description():
 
     ompl_planning_pipeline_config["move_group"].update(ompl_planning_yaml)
 
-
     # MoveIt controller configuration, Identica to reachy.launch.py
     moveit_simple_controllers_yaml = load_yaml(
         moveit_config_package,
@@ -141,7 +135,6 @@ def generate_launch_description():
         "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
     }
 
-
     # Trajectory execution, Identica to reachy.launch.py
     trajectory_execution = {
         "moveit_manage_controllers": True,
@@ -149,7 +142,6 @@ def generate_launch_description():
         "trajectory_execution.allowed_goal_duration_margin": 0.5,
         "trajectory_execution.allowed_start_tolerance": 0.01,
     }
-
 
     # Planning Scene Monitor, Identica to reachy.launch.py
     planning_scene_monitor_parameters = {
@@ -161,14 +153,12 @@ def generate_launch_description():
         }
     }
 
-
     # 3D Sensors / OctoMap, Identica to reachy.launch.py
     sensors_3d_yaml = load_yaml(
         moveit_config_package,
         "config/sensors_3d.yaml"
     )
     sensors_3d_parameters = sensors_3d_yaml or {}
-
 
     # Octomap configuration
     occupancy_map_yaml = load_yaml(
@@ -177,6 +167,49 @@ def generate_launch_description():
     )
     occupancy_map_parameters = occupancy_map_yaml or {}
 
+    # Depth image to PointCloud2 conversion
+    head_depth_to_pointcloud = Node(
+        package="depth_image_proc",
+        executable="point_cloud_xyz_node",
+        name="head_depth_to_pointcloud",
+        output="screen",
+        remappings=[
+            ("image_rect", "/camera/depth/image_raw"),
+            ("camera_info", "/camera/depth/camera_info"),
+            ("points", "/camera/depth/points2"),
+        ],
+        parameters=[
+            {
+                "use_sim_time": use_sim_time,
+            }
+        ],
+    )
+
+    torso_depth_to_pointcloud = Node(
+        package="depth_image_proc",
+        executable="point_cloud_xyz_node",
+        name="torso_depth_to_pointcloud",
+        output="screen",
+        remappings=[
+            (
+                "image_rect",
+                "/torso_camera/torso_camera/depth/image_raw",
+            ),
+            (
+                "camera_info",
+                "/torso_camera/torso_camera/depth/camera_info",
+            ),
+            (
+                "points",
+                "/torso_camera/depth/points2",
+            ),
+        ],
+        parameters=[
+            {
+                "use_sim_time": use_sim_time,
+            }
+        ],
+    )
 
     # Move Group Node, Identica to reachy.launch.py
     move_group_node = Node(
@@ -185,7 +218,7 @@ def generate_launch_description():
         name="move_group",
         output="screen",
 
-        parameters=[    
+        parameters=[
             robot_description_semantic,
             kinematics_yaml,
             ompl_planning_pipeline_config,
@@ -200,7 +233,6 @@ def generate_launch_description():
         ],
     )
 
-
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -208,6 +240,11 @@ def generate_launch_description():
                 default_value="false",
                 description="Use simulation time if true",
             ),
+
+            # Convert depth images to PointCloud2 before MoveIt starts
+            head_depth_to_pointcloud,
+            torso_depth_to_pointcloud,
+
             move_group_node,
         ]
     )
