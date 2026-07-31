@@ -156,7 +156,7 @@ def generate_launch_description():
     # 3D Sensors / OctoMap, Identica to reachy.launch.py
     sensors_3d_yaml = load_yaml(
         moveit_config_package,
-        "config/sensors_3d.yaml"
+        "config/sensors_3d_hardware.yaml"
     )
     sensors_3d_parameters = sensors_3d_yaml or {}
 
