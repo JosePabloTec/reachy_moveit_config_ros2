@@ -5,7 +5,7 @@ sensors:
 head_camera:
   sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
   point_cloud_topic: /camera/depth/points2
-  point_cloud_frame: depth_cam_l_optical
+  point_cloud_frame: camera_color_optical_frame
   max_range: 4.0
   point_subsample: 1
   padding_offset: 0.03
@@ -16,7 +16,7 @@ head_camera:
 torso_camera:
   sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
   point_cloud_topic: /torso_camera/depth/points2
-  point_cloud_frame: torso_camera_optical
+  point_cloud_frame: tof_camera_optical
   max_range: 4.0
   point_subsample: 1
   padding_offset: 0.03

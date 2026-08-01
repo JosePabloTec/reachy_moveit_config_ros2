@@ -193,11 +193,11 @@ def generate_launch_description():
         remappings=[
             (
                 "image_rect",
-                "/torso_camera/torso_camera/depth/image_raw",
+                "/teleop_camera/depth/image_raw",
             ),
             (
                 "camera_info",
-                "/torso_camera/torso_camera/depth/camera_info",
+                "/teleop_camera/depth/camera_info",
             ),
             (
                 "points",
