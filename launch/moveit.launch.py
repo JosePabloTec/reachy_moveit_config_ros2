@@ -84,59 +84,7 @@ def generate_launch_description():
        f' robot_model:="{BETA if reachy_config.beta else DVT}"',
    )
 
-<<<<<<< HEAD
 
-   robot_description = {
-       "robot_description": ParameterValue(
-           Command(
-               [
-                   FindExecutable(name="xacro"),
-                   " ",
-                   PathJoinSubstitution(
-                       [
-                           FindPackageShare("reachy_description"),
-                           "urdf",
-                           "reachy.urdf.xacro",
-                       ]
-                   ),
-                   *reachy_urdf_config,
-               ]
-           ),
-           value_type=str,
-       )
-   }
-
-
-   # Robot semantic description
-
-
-   robot_description_semantic_config = load_file(
-       moveit_config_package,
-       "config/reachy2.srdf",
-   )
-
-
-   robot_description_semantic = {
-       "robot_description_semantic": robot_description_semantic_config
-   }
-
-
-   # Kinematics
-
-
-
-   kinematics_yaml = load_yaml(
-       moveit_config_package,
-       "config/kinematics.yaml",
-   )
-
-
-   # OMPL planning pipeline
-
-
-
-
-=======
    # Robot semantic description
 
 
@@ -166,7 +114,6 @@ def generate_launch_description():
 
 
 
->>>>>>> e1d8807 (works on hardware, uses the description topic)
    ompl_planning_pipeline_config = {
        "move_group": {
            "planning_plugin": "ompl_interface/OMPLPlanner",
@@ -188,11 +135,7 @@ def generate_launch_description():
            ),
 
 
-<<<<<<< HEAD
-           "start_state_max_bounds_error": 0.1,
-=======
            "start_state_max_bounds_error": 0.3,  # necessary for the ERL Robot shoulder roll
->>>>>>> e1d8807 (works on hardware, uses the description topic)
        }
    }
 
@@ -275,13 +218,7 @@ def generate_launch_description():
    occupancy_map_parameters = occupancy_map_yaml or {}
 
 
-<<<<<<< HEAD
-   # ---------------------------------------------------------
-   # Depth image -> PointCloud2
-   # ---------------------------------------------------------
-=======
    # Depth image to PointCloud2
->>>>>>> e1d8807 (works on hardware, uses the description topic)
 
 
    head_depth_to_pointcloud = Node(
@@ -340,10 +277,6 @@ def generate_launch_description():
 
 
        parameters=[
-<<<<<<< HEAD
-           robot_description,
-=======
->>>>>>> e1d8807 (works on hardware, uses the description topic)
            robot_description_semantic,
            kinematics_yaml,
            ompl_planning_pipeline_config,
@@ -362,11 +295,7 @@ def generate_launch_description():
 
 
    # RViz
-<<<<<<< HEAD
-   # COntains the same configuration mechanism as reachy.launch.py
-=======
    # COntains the same configuration as reachy.launch.py
->>>>>>> e1d8807 (works on hardware, uses the description topic)
 
 
    rviz_config_file = PathJoinSubstitution(
@@ -392,10 +321,6 @@ def generate_launch_description():
 
 
        parameters=[
-<<<<<<< HEAD
-           robot_description,
-=======
->>>>>>> e1d8807 (works on hardware, uses the description topic)
            robot_description_semantic,
            ompl_planning_pipeline_config,
            kinematics_yaml,
