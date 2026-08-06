@@ -2,7 +2,7 @@ sensors:
   - head_camera
   - torso_camera
 
-head_camera:
+torso_camera:
   sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
   point_cloud_topic: /camera/depth/points2
   point_cloud_frame: camera_color_optical_frame
@@ -13,7 +13,7 @@ head_camera:
   filtered_cloud_topic: /filtered_cloud_head
   max_update_rate: 10.0
 
-torso_camera:
+head_camera:
   sensor_plugin: occupancy_map_monitor/PointCloudOctomapUpdater
   point_cloud_topic: /torso_camera/depth/points2
   point_cloud_frame: tof_camera_optical
